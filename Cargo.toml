@@ -24,3 +24,7 @@ path = "examples/ch01/wgpu_info.rs"
 [[example]]
 name = "triangle"
 path = "examples/ch02/triangle.rs"
+
+[[example]]
+name = "triangle_primitive"
+path = "examples/ch02/triangle_primitive.rs"
