@@ -3,7 +3,6 @@ struct Output {
     @location(0) Color:vec4f,
 };
 
-// rray(${v(0, 0)}${v(1, 0)}${v(0, 1)}${v(0, 1)}${v(1, 0)}${v(1, 1)});
 
 @vertex
 fn vs_main(
@@ -20,15 +19,17 @@ fn vs_main(
 
     var color = array<vec3f, 6>(
         vec3f(1.0, 0.0, 0.0),
-        vec3f(1.0, 0.5, 0.0),
+        vec3f(1.0, 0.0, 0.0),
         vec3f(0.0, 1.0, 0.0),
-        vec3f(0.0, 1.0, 0.5),
+        vec3f(0.0, 1.0, 0.0),
         vec3f(0.0, 0.0, 1.0),
-        vec3f(0.5, 0.0, 1.0)
+        vec3f(0.0, 0.0, 1.0)
     );
 
     var output: Output;
-    output.Position = vec4f(pos[VertexIndex], 0.0, 1.0);
+    let p = pos[VertexIndex];
+    let q = (2.0 * p) - vec2f(1.0, 1.0);
+    output.Position = vec4f(q, 0.0, 1.0);
     output.Color = vec4f(color[VertexIndex], 1.0);
     return output;
 }
