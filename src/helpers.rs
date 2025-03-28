@@ -1,3 +1,4 @@
+use image::DynamicImage;
 use winit::window::Window;
 
 pub struct IWgpuInit<'a> {
@@ -39,7 +40,7 @@ impl <'a> IWgpuInit <'a> {
             format,
             width: size.width,
             height: size.height,
-            present_mode: wgpu::PresentMode::Fifo,
+            present_mode: surface_caps.present_modes[0],
             alpha_mode: surface_caps.alpha_modes[0],
             view_formats: vec![],
             desired_maximum_frame_latency: 2,
@@ -139,18 +140,34 @@ impl IRenderPipeline<'_> {
             fragment: Some(wgpu::FragmentState {
                 module: &self.fs_shader.as_ref().unwrap(),
                 entry_point: Some(&self.fs_entry),
-                targets: &[Some(init.config.format.into())],
-                 compilation_options: Default::default(),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: init.config.format,
+                    blend: Some(wgpu::BlendState {
+                        color: wgpu::BlendComponent::REPLACE,
+                        alpha: wgpu::BlendComponent::REPLACE,
+                    }),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: Default::default(),
             }),
             primitive: wgpu::PrimitiveState {
                 topology: self.topology,
                 strip_index_format: self.strip_index_format,
-                ..Default::default()
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: Some(wgpu::Face::Back),
+                // Setting this to anything other than Fill requires Features::POLYGON_MODE_LINE
+                // or Features::POLYGON_MODE_POINT
+                polygon_mode: wgpu::PolygonMode::Fill,
+                // Requires Features::DEPTH_CLIP_CONTROL
+                unclipped_depth: false,
+                // Requires Features::CONSERVATIVE_RASTERIZATION
+                conservative: false,
             },
             depth_stencil,
             multisample: wgpu::MultisampleState {
                 count: init.sample_count,
-                ..Default::default()
+                mask: !0,
+                alpha_to_coverage_enabled: false,
             },
             multiview: None,
             cache: None,
@@ -169,6 +186,49 @@ pub fn create_color_attachment<'a>(
             store: wgpu::StoreOp::Store,
         },
     }
+}
+
+pub fn create_image_texture_view(init: &IWgpuInit, diffuse_image: &DynamicImage) -> wgpu::TextureView {
+    let diffuse_rgba = diffuse_image.to_rgba8();
+    use image::GenericImageView;
+    let dimensions = diffuse_image.dimensions();
+
+    let texture_size = wgpu::Extent3d {
+        width: dimensions.0,
+        height: dimensions.1,
+        depth_or_array_layers: 1,
+    };
+    let texture = init.device.create_texture(
+        &wgpu::TextureDescriptor {
+            size: texture_size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::TEXTURE_BINDING,
+            label: None,
+            view_formats: &[],
+        }
+    );
+
+    init.queue.write_texture(
+        wgpu::TexelCopyTextureInfo {
+            texture: &texture,
+            mip_level: 0,
+            origin: wgpu::Origin3d::ZERO,
+            aspect: wgpu::TextureAspect::All,
+        },
+        &diffuse_rgba,
+        wgpu::TexelCopyBufferLayout {
+            offset: 0,
+            bytes_per_row: Some(4 * dimensions.0),
+            rows_per_image: Some(dimensions.1),
+        },
+        texture_size,
+    );
+
+    texture.create_view(&wgpu::TextureViewDescriptor::default())
+
 }
 
 pub fn create_msaa_texture_view(init: &IWgpuInit) -> wgpu::TextureView {
@@ -236,3 +296,16 @@ pub fn create_depth_stencil_attachment<'a>(depth_view: &'a  wgpu::TextureView) -
     }
 }
 
+pub fn create_default_sampler(init: &IWgpuInit) -> wgpu::Sampler {
+    init.device.create_sampler(
+        &wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        }
+    )
+}

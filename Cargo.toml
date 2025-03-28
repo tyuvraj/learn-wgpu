@@ -36,3 +36,7 @@ path = "examples/ch02/triangle_gpu_buffer.rs"
 [[example]]
 name = "rectangle"
 path = "examples/ch02/rectangle.rs"
+
+[[example]]
+name = "imshow"
+path = "examples/imshow/imshow.rs"
