@@ -14,7 +14,7 @@ struct State <'a> {
 
 impl<'a> State<'a> {
     async  fn new(window: &'a Window) -> Self {
-        let mut init = ws::IWgpuInit::new(&window, 1, None)
+        let init = ws::IWgpuInit::new(&window, 1, None)
             .await;
 
         let diffuse_bytes = include_bytes!("happy-tree.png");
